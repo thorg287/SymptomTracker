@@ -113,7 +113,7 @@ fun HomeScreenContent(
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    scrolledContainerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onBackground
                 ),
                 scrollBehavior = scrollBehavior
@@ -245,6 +245,14 @@ private fun EntryCard(
                     style = MaterialTheme.typography.bodySmall,
                     color = Color.Black.copy(alpha = 0.6f),
                     fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(top = 2.dp)
+                )
+            }
+            if (entry.trigger.isNotBlank()) {
+                Text(
+                    text = "Auslöser: ${entry.trigger}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color.Black.copy(alpha = 0.6f),
                     modifier = Modifier.padding(top = 2.dp)
                 )
             }

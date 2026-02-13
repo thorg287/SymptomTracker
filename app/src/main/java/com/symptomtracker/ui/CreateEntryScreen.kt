@@ -1,5 +1,6 @@
 package com.symptomtracker.ui
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -48,7 +49,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -78,6 +79,7 @@ fun CreateEntryScreen(
     
     val savedBodyParts by existingBodyParts.collectAsState()
     val sessionBodyParts = remember { mutableStateListOf<String>() }
+    val context = LocalContext.current
     
     val allBodyParts by remember {
         derivedStateOf {
@@ -103,7 +105,6 @@ fun CreateEntryScreen(
     )
 
     val scrollState = rememberScrollState()
-    val scrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
 
     if (showDatePicker) {
         DatePickerDialog(
@@ -192,7 +193,6 @@ fun CreateEntryScreen(
     }
 
     Scaffold(
-        modifier = Modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         topBar = {
             CenterAlignedTopAppBar(
                 title = {
@@ -211,10 +211,9 @@ fun CreateEntryScreen(
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
-                    scrolledContainerColor = MaterialTheme.colorScheme.surfaceVariant,
+                    scrolledContainerColor = MaterialTheme.colorScheme.background,
                     titleContentColor = MaterialTheme.colorScheme.onBackground
-                ),
-                scrollBehavior = scrollBehavior
+                )
             )
         }
     ) { padding ->
@@ -228,8 +227,9 @@ fun CreateEntryScreen(
         ) {
             // Body Part Selection
             Text(
-                "Körperstelle",
-                style = MaterialTheme.typography.titleMedium
+                "Körperstelle *",
+                style = MaterialTheme.typography.titleMedium,
+                color = if (selectedBodyPart == null) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onBackground
             )
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -284,14 +284,17 @@ fun CreateEntryScreen(
                 "Art des Schmerzes",
                 style = MaterialTheme.typography.titleMedium
             )
+            val painButtonsDisabled = painTypeOther.isNotBlank()
+            
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 PAIN_TYPES.take(2).forEach { type ->
-                    val isSelected = selectedPainType == type
+                    val isSelected = !painButtonsDisabled && selectedPainType == type
                     Button(
                         onClick = { selectedPainType = type },
+                        enabled = !painButtonsDisabled,
                         modifier = Modifier.weight(1f),
                         colors = if (isSelected) {
                             androidx.compose.material3.ButtonDefaults.buttonColors(
@@ -301,7 +304,8 @@ fun CreateEntryScreen(
                         } else {
                             androidx.compose.material3.ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f)
                             )
                         }
                     ) {
@@ -318,9 +322,10 @@ fun CreateEntryScreen(
                 horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
                 PAIN_TYPES.drop(2).forEach { type ->
-                    val isSelected = selectedPainType == type
+                    val isSelected = !painButtonsDisabled && selectedPainType == type
                     Button(
                         onClick = { selectedPainType = type },
+                        enabled = !painButtonsDisabled,
                         modifier = Modifier.weight(1f),
                         colors = if (isSelected) {
                             androidx.compose.material3.ButtonDefaults.buttonColors(
@@ -330,7 +335,8 @@ fun CreateEntryScreen(
                         } else {
                             androidx.compose.material3.ButtonDefaults.buttonColors(
                                 containerColor = MaterialTheme.colorScheme.surfaceVariant,
-                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+                                contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
+                                disabledContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.38f)
                             )
                         }
                     ) {
@@ -429,21 +435,25 @@ fun CreateEntryScreen(
 
             Button(
                 onClick = {
-                    val painType = if (painTypeOther.isNotBlank()) "Sonstige" else selectedPainType
-                    onSave(
-                        SymptomEntry(
-                            severity = severity,
-                            painType = painType,
-                            painTypeOther = painTypeOther.takeIf { it.isNotBlank() },
-                            dateTimeMillis = dateTimeMillis,
-                            medication = medication,
-                            trigger = trigger,
-                            note = note,
-                            heartRate = heartRate.toIntOrNull(),
-                            bloodPressure = bloodPressure.takeIf { it.isNotBlank() },
-                            bodyPart = selectedBodyPart
+                    if (selectedBodyPart == null) {
+                        Toast.makeText(context, "Bitte wählen Sie eine Körperstelle aus", Toast.LENGTH_SHORT).show()
+                    } else {
+                        val painType = if (painTypeOther.isNotBlank()) "Sonstige" else selectedPainType
+                        onSave(
+                            SymptomEntry(
+                                severity = severity,
+                                painType = painType,
+                                painTypeOther = painTypeOther.takeIf { it.isNotBlank() },
+                                dateTimeMillis = dateTimeMillis,
+                                medication = medication,
+                                trigger = trigger,
+                                note = note,
+                                heartRate = heartRate.toIntOrNull(),
+                                bloodPressure = bloodPressure.takeIf { it.isNotBlank() },
+                                bodyPart = selectedBodyPart
+                            )
                         )
-                    )
+                    }
                 },
                 modifier = Modifier.fillMaxWidth(),
                 shape = androidx.compose.foundation.shape.RoundedCornerShape(12.dp)
