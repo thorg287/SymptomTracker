@@ -6,21 +6,33 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.MedicalServices
+import androidx.compose.material.icons.filled.Notes
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -38,12 +50,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.symptomtracker.data.SymptomEntry
 import com.symptomtracker.ui.theme.SymptomTrackerTheme
 import kotlinx.coroutines.flow.StateFlow
@@ -152,14 +166,14 @@ fun HomeScreenContent(
                     .fillMaxSize()
                     .padding(padding),
                 contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp)
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
                 item {
                     Text(
                         "Letzte Einträge",
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.padding(bottom = 4.dp)
+                        modifier = Modifier.padding(bottom = 4.dp, start = 4.dp)
                     )
                 }
                 items(entryList) { entry ->
@@ -178,100 +192,217 @@ private fun EntryCard(
     entry: SymptomEntry,
     onDeleteClick: () -> Unit
 ) {
-    val dateFormat = SimpleDateFormat("dd.MM.yyyy HH:mm", Locale.GERMAN)
+    val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.GERMAN)
+    val timeFormat = SimpleDateFormat("HH:mm", Locale.GERMAN)
     val displayDate = dateFormat.format(Date(entry.dateTimeMillis))
+    val displayTime = timeFormat.format(Date(entry.dateTimeMillis))
 
     val backgroundColor = getIntensityColor(entry.severity)
+    val contentColor = Color.Black.copy(alpha = 0.8f)
+    val labelColor = Color.Black.copy(alpha = 0.5f)
 
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(20.dp),
         colors = CardDefaults.cardColors(
             containerColor = backgroundColor
-        )
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(20.dp)
         ) {
+            // Header: Body Part and Score
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                verticalAlignment = Alignment.Top
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
-                        text = "Schweregrad: ${entry.severity}/10",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black.copy(alpha = 0.8f)
+                        text = entry.bodyPart ?: "Unbekannt",
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = contentColor
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.FlashOn,
+                            contentDescription = null,
+                            modifier = Modifier.size(14.dp),
+                            tint = labelColor
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = if (entry.painTypeOther?.isNotBlank() == true) entry.painTypeOther else entry.painType,
+                            style = MaterialTheme.typography.bodyMedium,
+                            fontWeight = FontWeight.Medium,
+                            color = contentColor.copy(alpha = 0.7f)
+                        )
+                    }
+                }
+
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = "${entry.severity}",
+                        style = MaterialTheme.typography.displaySmall.copy(
+                            fontSize = 32.sp,
+                            fontWeight = FontWeight.Black
+                        ),
+                        color = contentColor
                     )
                     Text(
-                        text = displayDate,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = Color.Black.copy(alpha = 0.6f)
+                        text = "/ 10",
+                        style = MaterialTheme.typography.labelLarge,
+                        fontWeight = FontWeight.Bold,
+                        color = labelColor
                     )
                 }
-                IconButton(onClick = onDeleteClick) {
+            }
+
+            HorizontalDivider(
+                modifier = Modifier.padding(vertical = 16.dp),
+                thickness = 1.dp,
+                color = contentColor.copy(alpha = 0.1f)
+            )
+
+            // Grid Section
+            Row(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.weight(1f)) {
+                    AttributeItem(
+                        icon = Icons.Default.Schedule,
+                        label = "ZEITPUNKT",
+                        value = "$displayDate | $displayTime",
+                        contentColor = contentColor,
+                        labelColor = labelColor
+                    )
+                    if (entry.trigger.isNotBlank()) {
+                        Spacer(modifier = Modifier.height(12.dp))
+                        AttributeItem(
+                            icon = Icons.Default.Warning,
+                            label = "AUSLÖSER",
+                            value = entry.trigger,
+                            contentColor = contentColor,
+                            labelColor = labelColor
+                        )
+                    }
+                }
+                Column(modifier = Modifier.weight(1f)) {
+                    if (entry.heartRate != null || !entry.bloodPressure.isNullOrBlank()) {
+                        val vitals = buildString {
+                            if (entry.heartRate != null) append("${entry.heartRate} bpm")
+                            if (entry.heartRate != null && !entry.bloodPressure.isNullOrBlank()) append("\n")
+                            if (!entry.bloodPressure.isNullOrBlank()) append(entry.bloodPressure)
+                        }
+                        AttributeItem(
+                            icon = Icons.Default.Favorite,
+                            label = "VITALS",
+                            value = vitals,
+                            contentColor = contentColor,
+                            labelColor = labelColor
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                    }
+                    if (entry.medication.isNotBlank()) {
+                        AttributeItem(
+                            icon = Icons.Default.MedicalServices,
+                            label = "MEDIKATION",
+                            value = entry.medication,
+                            contentColor = contentColor,
+                            labelColor = labelColor
+                        )
+                    }
+                }
+            }
+
+            // Notes Section
+            if (entry.note.isNotBlank()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Notes,
+                            contentDescription = null,
+                            modifier = Modifier.size(12.dp),
+                            tint = labelColor
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "NOTIZ",
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.Bold,
+                            color = labelColor
+                        )
+                    }
+                    Text(
+                        text = entry.note,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = contentColor,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+            }
+
+            // Footer: Delete Button
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp),
+                horizontalArrangement = Arrangement.End
+            ) {
+                IconButton(
+                    onClick = onDeleteClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = "Eintrag löschen",
-                        tint = MaterialTheme.colorScheme.error
+                        tint = MaterialTheme.colorScheme.error.copy(alpha = 0.7f),
+                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
-            if (!entry.bodyPart.isNullOrBlank()) {
-                Text(
-                    text = "Körperstelle: ${entry.bodyPart}",
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    color = Color.Black.copy(alpha = 0.7f)
-                )
-            }
+        }
+    }
+}
+
+@Composable
+private fun AttributeItem(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    contentColor: Color,
+    labelColor: Color
+) {
+    Row(verticalAlignment = Alignment.Top) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            modifier = Modifier
+                .size(16.dp)
+                .padding(top = 2.dp),
+            tint = labelColor
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Column {
             Text(
-                text = "Art: ${if (entry.painTypeOther?.isNotBlank() == true) entry.painTypeOther else entry.painType}",
-                style = MaterialTheme.typography.bodyMedium,
-                color = Color.Black.copy(alpha = 0.8f),
-                modifier = Modifier.padding(top = 2.dp)
+                text = label,
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Bold,
+                color = labelColor
             )
-            if (entry.heartRate != null || !entry.bloodPressure.isNullOrBlank()) {
-                val vitals = buildString {
-                    if (entry.heartRate != null) append("Puls: ${entry.heartRate} ")
-                    if (!entry.bloodPressure.isNullOrBlank()) append("Blutdruck: ${entry.bloodPressure}")
-                }
-                Text(
-                    text = vitals,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Black.copy(alpha = 0.6f),
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
-            if (entry.trigger.isNotBlank()) {
-                Text(
-                    text = "Auslöser: ${entry.trigger}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Black.copy(alpha = 0.6f),
-                    modifier = Modifier.padding(top = 2.dp)
-                )
-            }
-            if (entry.medication.isNotBlank()) {
-                Text(
-                    text = "Medikation: ${entry.medication}",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Black.copy(alpha = 0.6f)
-                )
-            }
-            if (entry.note.isNotBlank()) {
-                Text(
-                    text = entry.note,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = Color.Black.copy(alpha = 0.8f),
-                    maxLines = 2,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-            }
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.Bold,
+                color = contentColor
+            )
         }
     }
 }
