@@ -51,6 +51,14 @@ class SymptomViewModel(private val repository: SymptomRepository) : ViewModel() 
         }
     }
 
+    fun insertEntries(entries: List<SymptomEntry>) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.insertAll(entries)
+            }
+        }
+    }
+
     fun deleteEntry(entry: SymptomEntry) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {

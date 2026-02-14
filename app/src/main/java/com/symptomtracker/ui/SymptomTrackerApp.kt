@@ -26,7 +26,8 @@ fun SymptomTrackerApp(
             HomeScreen(
                 entries = viewModel.entries,
                 onAddClick = { navController.navigate(Screen.CreateEntry.route) },
-                onDeleteClick = { entry -> viewModel.deleteEntry(entry) }
+                onDeleteClick = { entry -> viewModel.deleteEntry(entry) },
+                onImportEntries = { entries -> viewModel.insertEntries(entries) }
             )
         }
         composable(Screen.CreateEntry.route) {

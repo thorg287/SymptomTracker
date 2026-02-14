@@ -15,6 +15,10 @@ class SymptomRepository(private val dao: SymptomEntryDao) {
     suspend fun insertEntry(entry: SymptomEntry) {
         dao.insert(entry)
     }
+    
+    suspend fun insertAll(entries: List<SymptomEntry>) {
+        dao.insertAll(entries)
+    }
 
     suspend fun deleteEntry(entry: SymptomEntry) {
         dao.delete(entry)

@@ -3,6 +3,7 @@ package com.symptomtracker.data
 import androidx.room.Dao
 import androidx.room.Delete
 import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import kotlinx.coroutines.flow.Flow
 
@@ -21,8 +22,11 @@ interface SymptomEntryDao {
     @Query("SELECT DISTINCT dosage FROM symptom_entries WHERE medication = :medication AND dosage IS NOT NULL AND dosage != ''")
     fun getDosagesForMedication(medication: String): Flow<List<String>>
 
-    @Insert
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entry: SymptomEntry): Long
+    
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertAll(entries: List<SymptomEntry>)
 
     @Delete
     suspend fun delete(entry: SymptomEntry)

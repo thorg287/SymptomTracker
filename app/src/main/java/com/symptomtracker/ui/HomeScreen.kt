@@ -1,6 +1,10 @@
 package com.symptomtracker.ui
 
+import android.content.Context
+import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -21,6 +25,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FlashOn
+import androidx.compose.material.icons.filled.ImportExport
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.Notes
@@ -30,6 +35,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.HorizontalDivider
@@ -58,9 +65,13 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.google.gson.Gson
+import com.google.gson.reflect.TypeToken
 import com.symptomtracker.data.SymptomEntry
 import com.symptomtracker.ui.theme.SymptomTrackerTheme
 import kotlinx.coroutines.flow.StateFlow
+import java.io.BufferedReader
+import java.io.InputStreamReader
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -69,14 +80,16 @@ import java.util.Locale
 fun HomeScreen(
     entries: StateFlow<List<SymptomEntry>>,
     onAddClick: () -> Unit,
-    onDeleteClick: (SymptomEntry) -> Unit
+    onDeleteClick: (SymptomEntry) -> Unit,
+    onImportEntries: (List<SymptomEntry>) -> Unit
 ) {
     val entryList by entries.collectAsState()
 
     HomeScreenContent(
         entryList = entryList,
         onAddClick = onAddClick,
-        onDeleteClick = onDeleteClick
+        onDeleteClick = onDeleteClick,
+        onImportEntries = onImportEntries
     )
 }
 
@@ -85,11 +98,25 @@ fun HomeScreen(
 fun HomeScreenContent(
     entryList: List<SymptomEntry>,
     onAddClick: () -> Unit,
-    onDeleteClick: (SymptomEntry) -> Unit
+    onDeleteClick: (SymptomEntry) -> Unit,
+    onImportEntries: (List<SymptomEntry>) -> Unit
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     var entryToDelete by remember { mutableStateOf<SymptomEntry?>(null) }
     val context = LocalContext.current
+    var showMenu by remember { mutableStateOf(false) }
+
+    val exportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        uri?.let { exportData(context, it, entryList) }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        uri?.let { importData(context, it, onImportEntries) }
+    }
 
     if (entryToDelete != null) {
         AlertDialog(
@@ -124,6 +151,32 @@ fun HomeScreenContent(
                         "SymptomTracker",
                         fontWeight = FontWeight.Bold
                     )
+                },
+                actions = {
+                    Box {
+                        IconButton(onClick = { showMenu = true }) {
+                            Icon(Icons.Default.ImportExport, contentDescription = "Daten")
+                        }
+                        DropdownMenu(
+                            expanded = showMenu,
+                            onDismissRequest = { showMenu = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Exportieren") },
+                                onClick = {
+                                    showMenu = false
+                                    exportLauncher.launch("symptom_entries_${System.currentTimeMillis()}.json")
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Importieren") },
+                                onClick = {
+                                    showMenu = false
+                                    importLauncher.launch(arrayOf("application/json"))
+                                }
+                            )
+                        }
+                    }
                 },
                 colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
@@ -184,6 +237,35 @@ fun HomeScreenContent(
                 }
             }
         }
+    }
+}
+
+private fun exportData(context: Context, uri: Uri, entries: List<SymptomEntry>) {
+    try {
+        val gson = Gson()
+        val json = gson.toJson(entries)
+        context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+            outputStream.write(json.toByteArray())
+        }
+        Toast.makeText(context, "Daten exportiert", Toast.LENGTH_SHORT).show()
+    } catch (e: Exception) {
+        Toast.makeText(context, "Export fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
+    }
+}
+
+private fun importData(context: Context, uri: Uri, onImport: (List<SymptomEntry>) -> Unit) {
+    try {
+        val contentResolver = context.contentResolver
+        contentResolver.openInputStream(uri)?.use { inputStream ->
+            val reader = BufferedReader(InputStreamReader(inputStream))
+            val json = reader.readText()
+            val type = object : TypeToken<List<SymptomEntry>>() {}.type
+            val entries: List<SymptomEntry> = Gson().fromJson(json, type)
+            onImport(entries)
+            Toast.makeText(context, "${entries.size} Einträge importiert", Toast.LENGTH_SHORT).show()
+        }
+    } catch (e: Exception) {
+        Toast.makeText(context, "Import fehlgeschlagen: ${e.message}", Toast.LENGTH_LONG).show()
     }
 }
 
@@ -457,7 +539,8 @@ fun HomeScreenPreview() {
         HomeScreenContent(
             entryList = sampleEntries,
             onAddClick = {},
-            onDeleteClick = {}
+            onDeleteClick = {},
+            onImportEntries = {}
         )
     }
 }
