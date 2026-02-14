@@ -32,6 +32,10 @@ fun SymptomTrackerApp(
         composable(Screen.CreateEntry.route) {
             CreateEntryScreen(
                 existingBodyParts = viewModel.bodyParts,
+                existingMedications = viewModel.medications,
+                getDosages = { medication -> viewModel.getDosagesForMedication(medication) },
+                onDeleteBodyPart = { bodyPart -> viewModel.deleteBodyPart(bodyPart) },
+                onDeleteMedication = { medication -> viewModel.deleteMedication(medication) },
                 onSave = { entry ->
                     viewModel.insertEntry(entry)
                     navController.popBackStack()

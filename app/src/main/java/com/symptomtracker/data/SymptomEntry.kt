@@ -12,6 +12,7 @@ data class SymptomEntry(
     val painTypeOther: String?,
     val dateTimeMillis: Long,
     val medication: String,
+    val dosage: String? = null,
     val trigger: String,
     val note: String,
     val heartRate: Int? = null,

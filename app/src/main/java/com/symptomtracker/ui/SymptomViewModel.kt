@@ -28,6 +28,21 @@ class SymptomViewModel(private val repository: SymptomRepository) : ViewModel() 
             initialValue = emptyList()
         )
 
+    val medications: StateFlow<List<String>> = repository.uniqueMedications
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    fun getDosagesForMedication(medication: String): StateFlow<List<String>> = 
+        repository.getDosagesForMedication(medication)
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = emptyList()
+            )
+
     fun insertEntry(entry: SymptomEntry) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
@@ -40,6 +55,22 @@ class SymptomViewModel(private val repository: SymptomRepository) : ViewModel() 
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 repository.deleteEntry(entry)
+            }
+        }
+    }
+
+    fun deleteBodyPart(bodyPart: String) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.deleteEntriesByBodyPart(bodyPart)
+            }
+        }
+    }
+
+    fun deleteMedication(medication: String) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.deleteEntriesByMedication(medication)
             }
         }
     }

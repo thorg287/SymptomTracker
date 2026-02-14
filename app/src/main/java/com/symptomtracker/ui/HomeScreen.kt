@@ -306,10 +306,11 @@ private fun EntryCard(
                         Spacer(modifier = Modifier.height(12.dp))
                     }
                     if (entry.medication.isNotBlank()) {
+                        val medValue = if (entry.dosage?.isNotBlank() == true) "${entry.medication}\n${entry.dosage}" else entry.medication
                         AttributeItem(
                             icon = Icons.Default.MedicalServices,
                             label = "MEDIKATION",
-                            value = entry.medication,
+                            value = medValue,
                             contentColor = contentColor,
                             labelColor = labelColor
                         )
@@ -432,7 +433,8 @@ fun HomeScreenPreview() {
             painType = "Kopfschmerz",
             painTypeOther = null,
             dateTimeMillis = System.currentTimeMillis(),
-            medication = "Ibuprofen 400mg",
+            medication = "Ibuprofen",
+            dosage = "400mg",
             trigger = "Stress",
             note = "Starker Druck im Schläfenbereich.",
             bodyPart = "Kopf",
