@@ -5,6 +5,7 @@ import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -23,10 +24,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FlashOn
 import androidx.compose.material.icons.filled.ImportExport
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.MedicalServices
 import androidx.compose.material.icons.filled.Notes
 import androidx.compose.material.icons.filled.Schedule
@@ -67,6 +68,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.symptomtracker.data.MedicationEntry
 import com.symptomtracker.data.SymptomEntry
 import com.symptomtracker.ui.theme.SymptomTrackerTheme
 import kotlinx.coroutines.flow.StateFlow
@@ -80,6 +82,7 @@ import java.util.Locale
 fun HomeScreen(
     entries: StateFlow<List<SymptomEntry>>,
     onAddClick: () -> Unit,
+    onEntryClick: (SymptomEntry) -> Unit,
     onDeleteClick: (SymptomEntry) -> Unit,
     onImportEntries: (List<SymptomEntry>) -> Unit
 ) {
@@ -88,6 +91,7 @@ fun HomeScreen(
     HomeScreenContent(
         entryList = entryList,
         onAddClick = onAddClick,
+        onEntryClick = onEntryClick,
         onDeleteClick = onDeleteClick,
         onImportEntries = onImportEntries
     )
@@ -98,6 +102,7 @@ fun HomeScreen(
 fun HomeScreenContent(
     entryList: List<SymptomEntry>,
     onAddClick: () -> Unit,
+    onEntryClick: (SymptomEntry) -> Unit,
     onDeleteClick: (SymptomEntry) -> Unit,
     onImportEntries: (List<SymptomEntry>) -> Unit
 ) {
@@ -161,13 +166,15 @@ fun HomeScreenContent(
                             expanded = showMenu,
                             onDismissRequest = { showMenu = false }
                         ) {
-                            DropdownMenuItem(
-                                text = { Text("Exportieren") },
-                                onClick = {
-                                    showMenu = false
-                                    exportLauncher.launch("symptom_entries_${System.currentTimeMillis()}.json")
-                                }
-                            )
+                            if (entryList.isNotEmpty()) {
+                                DropdownMenuItem(
+                                    text = { Text("Exportieren") },
+                                    onClick = {
+                                        showMenu = false
+                                        exportLauncher.launch("symptom_entries_${System.currentTimeMillis()}.json")
+                                    }
+                                )
+                            }
                             DropdownMenuItem(
                                 text = { Text("Importieren") },
                                 onClick = {
@@ -205,7 +212,7 @@ fun HomeScreenContent(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    "Noch keine Einträge.\nTippen Sie auf + um einen neuen Symptom-Eintrag zu erstellen.",
+                    "Noch keine Einträge.\nTippen Sie auf + um einen neuen Symptom-Eintrag zu erstellen oder oben rechts auf Importieren.",
                     style = MaterialTheme.typography.titleLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
@@ -232,6 +239,7 @@ fun HomeScreenContent(
                 items(entryList) { entry ->
                     EntryCard(
                         entry = entry,
+                        onEditClick = { onEntryClick(entry) },
                         onDeleteClick = { entryToDelete = entry }
                     )
                 }
@@ -272,6 +280,7 @@ private fun importData(context: Context, uri: Uri, onImport: (List<SymptomEntry>
 @Composable
 private fun EntryCard(
     entry: SymptomEntry,
+    onEditClick: () -> Unit,
     onDeleteClick: () -> Unit
 ) {
     val dateFormat = SimpleDateFormat("dd.MM.yyyy", Locale.GERMAN)
@@ -387,8 +396,10 @@ private fun EntryCard(
                         )
                         Spacer(modifier = Modifier.height(12.dp))
                     }
-                    if (entry.medication.isNotBlank()) {
-                        val medValue = if (entry.dosage?.isNotBlank() == true) "${entry.medication}\n${entry.dosage}" else entry.medication
+                    if (entry.medications.isNotEmpty()) {
+                        val medValue = entry.medications.joinToString("\n") { med ->
+                            if (med.dosage?.isNotBlank() == true) "${med.name} (${med.dosage})" else med.name
+                        }
                         AttributeItem(
                             icon = Icons.Default.MedicalServices,
                             label = "MEDIKATION",
@@ -432,13 +443,26 @@ private fun EntryCard(
                 }
             }
 
-            // Footer: Delete Button
+            // Footer: Edit and Delete Buttons
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 12.dp),
-                horizontalArrangement = Arrangement.End
+                horizontalArrangement = Arrangement.End,
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(
+                    onClick = onEditClick,
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Edit,
+                        contentDescription = "Eintrag bearbeiten",
+                        tint = contentColor.copy(alpha = 0.6f),
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(8.dp))
                 IconButton(
                     onClick = onDeleteClick,
                     modifier = Modifier.size(32.dp)
@@ -515,8 +539,7 @@ fun HomeScreenPreview() {
             painType = "Kopfschmerz",
             painTypeOther = null,
             dateTimeMillis = System.currentTimeMillis(),
-            medication = "Ibuprofen",
-            dosage = "400mg",
+            medications = listOf(MedicationEntry("Ibuprofen", "400mg")),
             trigger = "Stress",
             note = "Starker Druck im Schläfenbereich.",
             bodyPart = "Kopf",
@@ -529,7 +552,7 @@ fun HomeScreenPreview() {
             painType = "Sonstiges",
             painTypeOther = "Rückenschmerzen",
             dateTimeMillis = System.currentTimeMillis() - 86400000,
-            medication = "",
+            medications = emptyList(),
             trigger = "Langes Sitzen",
             note = "Leichtes Ziehen im unteren Rücken.",
             bodyPart = "Rücken"
@@ -539,6 +562,7 @@ fun HomeScreenPreview() {
         HomeScreenContent(
             entryList = sampleEntries,
             onAddClick = {},
+            onEntryClick = {},
             onDeleteClick = {},
             onImportEntries = {}
         )

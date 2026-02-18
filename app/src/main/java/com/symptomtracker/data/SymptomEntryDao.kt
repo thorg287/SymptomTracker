@@ -16,12 +16,6 @@ interface SymptomEntryDao {
     @Query("SELECT DISTINCT bodyPart FROM symptom_entries WHERE bodyPart IS NOT NULL AND bodyPart != ''")
     fun getUniqueBodyParts(): Flow<List<String>>
 
-    @Query("SELECT DISTINCT medication FROM symptom_entries WHERE medication IS NOT NULL AND medication != ''")
-    fun getUniqueMedications(): Flow<List<String>>
-
-    @Query("SELECT DISTINCT dosage FROM symptom_entries WHERE medication = :medication AND dosage IS NOT NULL AND dosage != ''")
-    fun getDosagesForMedication(medication: String): Flow<List<String>>
-
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entry: SymptomEntry): Long
     
@@ -34,6 +28,6 @@ interface SymptomEntryDao {
     @Query("DELETE FROM symptom_entries WHERE bodyPart = :bodyPart")
     suspend fun deleteEntriesByBodyPart(bodyPart: String)
 
-    @Query("DELETE FROM symptom_entries WHERE medication = :medication")
-    suspend fun deleteEntriesByMedication(medication: String)
+    // Note: Medication related queries moved to ViewModel/Repository processing 
+    // due to medications being stored in a JSON list.
 }

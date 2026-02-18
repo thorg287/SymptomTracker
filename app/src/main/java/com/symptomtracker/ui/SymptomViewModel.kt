@@ -8,6 +8,7 @@ import com.symptomtracker.data.SymptomRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -41,6 +42,14 @@ class SymptomViewModel(private val repository: SymptomRepository) : ViewModel() 
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5000),
                 initialValue = emptyList()
+            )
+
+    fun getEntryById(id: Long): StateFlow<SymptomEntry?> = 
+        entries.map { list -> list.find { it.id == id } }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = null
             )
 
     fun insertEntry(entry: SymptomEntry) {
@@ -79,6 +88,14 @@ class SymptomViewModel(private val repository: SymptomRepository) : ViewModel() 
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 repository.deleteEntriesByMedication(medication)
+            }
+        }
+    }
+
+    fun deleteDosage(medication: String, dosage: String) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.deleteDosage(medication, dosage)
             }
         }
     }

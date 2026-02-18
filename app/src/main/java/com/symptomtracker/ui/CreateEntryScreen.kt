@@ -2,6 +2,7 @@ package com.symptomtracker.ui
 
 import android.widget.Toast
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -21,6 +23,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -43,6 +46,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -55,12 +59,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.symptomtracker.data.MedicationEntry
 import com.symptomtracker.data.SymptomEntry
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Calendar
@@ -70,12 +73,15 @@ private val PAIN_TYPES = listOf("Stechend", "Dumpf", "Pochend", "Brennend")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun CreateEntryScreen(
+    entryId: Long? = null,
     existingBodyParts: StateFlow<List<String>>,
     existingMedications: StateFlow<List<String>>,
     getDosages: (String) -> StateFlow<List<String>>,
+    getEntry: (Long) -> StateFlow<SymptomEntry?>,
     onSave: (SymptomEntry) -> Unit,
     onDeleteBodyPart: (String) -> Unit,
     onDeleteMedication: (String) -> Unit,
+    onDeleteDosage: (String, String) -> Unit,
     onBack: () -> Unit
 ) {
     var severity by remember { mutableIntStateOf(5) }
@@ -85,17 +91,41 @@ fun CreateEntryScreen(
     var trigger by remember { mutableStateOf("") }
     var note by remember { mutableStateOf("") }
     var heartRate by remember { mutableStateOf("") }
-    var bloodPressureValue by remember { mutableStateOf(TextFieldValue("")) }
+    var bloodPressureValue by remember { mutableStateOf("") }
     var selectedBodyPart by remember { mutableStateOf<String?>(null) }
-    var selectedMedication by remember { mutableStateOf<String?>(null) }
-    var selectedDosage by remember { mutableStateOf<String?>(null) }
     
+    val currentMedications = remember { mutableStateListOf<MedicationEntry>() }
+    
+    var medBeingAdded by remember { mutableStateOf<String?>(null) }
+    var dosageBeingAdded by remember { mutableStateOf<String?>(null) }
+
     val savedBodyParts by existingBodyParts.collectAsState()
     val savedMedications by existingMedications.collectAsState()
     
-    val dosagesForMed by remember(selectedMedication) {
+    val entryState by if (entryId != null) getEntry(entryId).collectAsState(initial = null) else remember { mutableStateOf(null) }
+    var isInitialized by remember { mutableStateOf(false) }
+
+    LaunchedEffect(entryState) {
+        if (!isInitialized && entryState != null) {
+            val entry = entryState!!
+            severity = entry.severity
+            selectedPainType = if (PAIN_TYPES.contains(entry.painType)) entry.painType else PAIN_TYPES[0]
+            painTypeOther = entry.painTypeOther ?: ""
+            dateTimeMillis = entry.dateTimeMillis
+            trigger = entry.trigger
+            note = entry.note
+            heartRate = entry.heartRate?.toString() ?: ""
+            bloodPressureValue = entry.bloodPressure ?: ""
+            selectedBodyPart = entry.bodyPart
+            currentMedications.clear()
+            currentMedications.addAll(entry.medications)
+            isInitialized = true
+        }
+    }
+    
+    val dosagesForMed by remember(medBeingAdded) {
         derivedStateOf { 
-            selectedMedication?.let { getDosages(it) } 
+            medBeingAdded?.let { getDosages(it) } 
         }
     }
     
@@ -216,8 +246,8 @@ fun CreateEntryScreen(
                 TextButton(onClick = {
                     if (newMedicationName.isNotBlank()) {
                         if (!allMedications.contains(newMedicationName)) sessionMedications.add(newMedicationName)
-                        selectedMedication = newMedicationName
-                        selectedDosage = null
+                        medBeingAdded = newMedicationName
+                        dosageBeingAdded = null
                         newMedicationName = ""
                         showAddMedicationDialog = false
                     }
@@ -243,7 +273,7 @@ fun CreateEntryScreen(
                 TextButton(onClick = {
                     if (newDosageName.isNotBlank()) {
                         if (!allDosages.contains(newDosageName)) sessionDosages.add(newDosageName)
-                        selectedDosage = newDosageName
+                        dosageBeingAdded = newDosageName
                         newDosageName = ""
                         showAddDosageDialog = false
                     }
@@ -257,19 +287,29 @@ fun CreateEntryScreen(
         AlertDialog(
             onDismissRequest = { itemToDelete = null },
             title = { Text("Löschen bestätigen") },
-            text = { Text("Möchten Sie '$name' und alle damit verbundenen Einträge wirklich löschen?") },
+            text = { Text("Möchten Sie '$name' wirklich löschen?") },
             confirmButton = {
                 TextButton(onClick = {
-                    if (type == "BODY_PART") {
-                        onDeleteBodyPart(name)
-                        sessionBodyParts.remove(name)
-                        if (selectedBodyPart == name) selectedBodyPart = null
-                    } else if (type == "MEDICATION") {
-                        onDeleteMedication(name)
-                        sessionMedications.remove(name)
-                        if (selectedMedication == name) {
-                            selectedMedication = null
-                            selectedDosage = null
+                    when (type) {
+                        "BODY_PART" -> {
+                            onDeleteBodyPart(name)
+                            sessionBodyParts.remove(name)
+                            if (selectedBodyPart == name) selectedBodyPart = null
+                        }
+                        "MEDICATION" -> {
+                            onDeleteMedication(name)
+                            sessionMedications.remove(name)
+                            if (medBeingAdded == name) {
+                                medBeingAdded = null
+                                dosageBeingAdded = null
+                            }
+                        }
+                        "DOSAGE" -> {
+                            medBeingAdded?.let { med ->
+                                onDeleteDosage(med, name)
+                                sessionDosages.remove(name)
+                                if (dosageBeingAdded == name) dosageBeingAdded = null
+                            }
                         }
                     }
                     itemToDelete = null
@@ -282,7 +322,7 @@ fun CreateEntryScreen(
     Scaffold(
         topBar = {
             CenterAlignedTopAppBar(
-                title = { Text("Neuer Eintrag", fontWeight = FontWeight.Bold) },
+                title = { Text(if (entryId == null) "Neuer Eintrag" else "Eintrag bearbeiten", fontWeight = FontWeight.Bold) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Zurück")
@@ -394,26 +434,14 @@ fun CreateEntryScreen(
                 OutlinedTextField(
                     value = bloodPressureValue,
                     onValueChange = { newValue ->
-                        val input = newValue.text
-                        val filtered = input.filter { it.isDigit() || it == '/' }
-                        
-                        var updatedText = filtered
-                        var updatedSelection = newValue.selection
-                        
-                        if (filtered.length > bloodPressureValue.text.length) {
-                            if (filtered.length == 3 && !filtered.contains('/')) {
-                                updatedText = filtered + "/"
-                                updatedSelection = TextRange(updatedText.length)
-                            }
-                        }
-                        
-                        bloodPressureValue = TextFieldValue(updatedText, updatedSelection)
+                        val filtered = newValue.filter { it.isDigit() || it == '/' }
+                        bloodPressureValue = filtered
                     },
                     label = { Text("Blutdruck") },
                     modifier = Modifier.weight(1f),
                     singleLine = true,
                     placeholder = { Text("z.B. 120/80") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
                 )
             }
 
@@ -433,8 +461,38 @@ fun CreateEntryScreen(
                 Button(onClick = { dateTimeMillis = System.currentTimeMillis() }, modifier = Modifier.padding(start = 8.dp)) { Text("Jetzt") }
             }
 
-            // Medication Selection
+            // Medication Section
             Text("Medikation", style = MaterialTheme.typography.titleMedium)
+            
+            // Show currently added medications for this entry
+            if (currentMedications.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    currentMedications.forEach { med ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surfaceVariant, RoundedCornerShape(8.dp))
+                                .padding(8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Column {
+                                Text(med.name, fontWeight = FontWeight.Bold)
+                                if (!med.dosage.isNullOrBlank()) {
+                                    Text(med.dosage, style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                            IconButton(onClick = { currentMedications.remove(med) }, modifier = Modifier.size(24.dp)) {
+                                Icon(Icons.Default.Close, contentDescription = "Entfernen")
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // Medication Selection for adding
+            Text("Medikament auswählen", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
             LazyRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -442,15 +500,15 @@ fun CreateEntryScreen(
             ) {
                 items(allMedications) { med ->
                     SelectableChip(
-                        selected = selectedMedication == med,
+                        selected = medBeingAdded == med,
                         label = med,
                         onClick = { 
-                            if (selectedMedication == med) {
-                                selectedMedication = null
-                                selectedDosage = null
+                            if (medBeingAdded == med) {
+                                medBeingAdded = null
+                                dosageBeingAdded = null
                             } else {
-                                selectedMedication = med
-                                selectedDosage = null
+                                medBeingAdded = med
+                                dosageBeingAdded = null
                             }
                         },
                         onLongClick = { itemToDelete = "MEDICATION" to med }
@@ -463,9 +521,9 @@ fun CreateEntryScreen(
                 }
             }
 
-            // Dosage Selection
-            if (selectedMedication != null) {
-                Text("Dosierung für $selectedMedication", style = MaterialTheme.typography.titleMedium)
+            // Dosage Selection for the medication being added
+            if (medBeingAdded != null) {
+                Text("Dosierung für $medBeingAdded", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically,
@@ -473,10 +531,10 @@ fun CreateEntryScreen(
                 ) {
                     items(allDosages) { dos ->
                         SelectableChip(
-                            selected = selectedDosage == dos,
+                            selected = dosageBeingAdded == dos,
                             label = dos,
-                            onClick = { selectedDosage = if (selectedDosage == dos) null else dos },
-                            onLongClick = {}
+                            onClick = { dosageBeingAdded = if (dosageBeingAdded == dos) null else dos },
+                            onLongClick = { itemToDelete = "DOSAGE" to dos }
                         )
                     }
                     item {
@@ -484,6 +542,20 @@ fun CreateEntryScreen(
                             Icon(Icons.Default.Add, contentDescription = "Hinzufügen", tint = MaterialTheme.colorScheme.primary)
                         }
                     }
+                }
+                
+                Button(
+                    onClick = {
+                        currentMedications.add(MedicationEntry(medBeingAdded!!, dosageBeingAdded))
+                        medBeingAdded = null
+                        dosageBeingAdded = null
+                    },
+                    modifier = Modifier.align(Alignment.End),
+                    colors = ButtonDefaults.filledTonalButtonColors()
+                ) {
+                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Hinzufügen")
                 }
             }
 
@@ -513,16 +585,16 @@ fun CreateEntryScreen(
                         val painType = if (painTypeOther.isNotBlank()) "Sonstige" else selectedPainType
                         onSave(
                             SymptomEntry(
+                                id = entryId ?: 0,
                                 severity = severity,
                                 painType = painType,
                                 painTypeOther = painTypeOther.takeIf { it.isNotBlank() },
                                 dateTimeMillis = dateTimeMillis,
-                                medication = selectedMedication ?: "",
-                                dosage = selectedDosage,
+                                medications = currentMedications.toList(),
                                 trigger = trigger,
                                 note = note,
                                 heartRate = heartRate.toIntOrNull(),
-                                bloodPressure = bloodPressureValue.text.takeIf { it.isNotBlank() },
+                                bloodPressure = bloodPressureValue.takeIf { it.isNotBlank() },
                                 bodyPart = selectedBodyPart
                             )
                         )
@@ -534,7 +606,7 @@ fun CreateEntryScreen(
                 shape = RoundedCornerShape(16.dp)
             ) { 
                 Text(
-                    "Eintrag speichern", 
+                    (if (entryId == null) "Eintrag speichern" else "Änderungen speichern"),
                     fontSize = 18.sp, 
                     fontWeight = FontWeight.Bold 
                 ) 
