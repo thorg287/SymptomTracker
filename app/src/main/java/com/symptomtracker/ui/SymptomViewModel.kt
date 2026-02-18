@@ -3,6 +3,7 @@ package com.symptomtracker.ui
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewModelScope
+import com.symptomtracker.data.BloodPressureEntry
 import com.symptomtracker.data.SymptomEntry
 import com.symptomtracker.data.SymptomRepository
 import kotlinx.coroutines.Dispatchers
@@ -15,7 +16,8 @@ import kotlinx.coroutines.withContext
 
 class SymptomViewModel(private val repository: SymptomRepository) : ViewModel() {
 
-    val entries: StateFlow<List<SymptomEntry>> = repository.allEntries
+    // Symptom Entries
+    val entries: StateFlow<List<SymptomEntry>> = repository.allSymptomEntries
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
@@ -55,7 +57,7 @@ class SymptomViewModel(private val repository: SymptomRepository) : ViewModel() 
     fun insertEntry(entry: SymptomEntry) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                repository.insertEntry(entry)
+                repository.insertSymptomEntry(entry)
             }
         }
     }
@@ -63,7 +65,7 @@ class SymptomViewModel(private val repository: SymptomRepository) : ViewModel() 
     fun insertEntries(entries: List<SymptomEntry>) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                repository.insertAll(entries)
+                repository.insertAllSymptomEntries(entries)
             }
         }
     }
@@ -71,7 +73,7 @@ class SymptomViewModel(private val repository: SymptomRepository) : ViewModel() 
     fun deleteEntry(entry: SymptomEntry) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
-                repository.deleteEntry(entry)
+                repository.deleteSymptomEntry(entry)
             }
         }
     }
@@ -96,6 +98,46 @@ class SymptomViewModel(private val repository: SymptomRepository) : ViewModel() 
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 repository.deleteDosage(medication, dosage)
+            }
+        }
+    }
+
+    // Blood Pressure Entries
+    val bloodPressureEntries: StateFlow<List<BloodPressureEntry>> = repository.allBloodPressureEntries
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    fun getBloodPressureEntryById(id: Long): StateFlow<BloodPressureEntry?> = 
+        bloodPressureEntries.map { list -> list.find { it.id == id } }
+            .stateIn(
+                scope = viewModelScope,
+                started = SharingStarted.WhileSubscribed(5000),
+                initialValue = null
+            )
+
+    fun insertBloodPressureEntry(entry: BloodPressureEntry) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.insertBloodPressureEntry(entry)
+            }
+        }
+    }
+
+    fun insertBloodPressureEntries(entries: List<BloodPressureEntry>) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.insertAllBloodPressureEntries(entries)
+            }
+        }
+    }
+
+    fun deleteBloodPressureEntry(entry: BloodPressureEntry) {
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                repository.deleteBloodPressureEntry(entry)
             }
         }
     }

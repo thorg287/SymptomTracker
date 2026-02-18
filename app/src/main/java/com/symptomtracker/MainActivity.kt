@@ -19,7 +19,10 @@ class MainActivity : ComponentActivity() {
 
         val database = getDatabase(applicationContext)
 
-        val repository = SymptomRepository(database.symptomEntryDao())
+        val repository = SymptomRepository(
+            symptomDao = database.symptomEntryDao(),
+            bloodPressureDao = database.bloodPressureEntryDao()
+        )
         val viewModelFactory = SymptomViewModelFactory(repository)
 
         setContent {

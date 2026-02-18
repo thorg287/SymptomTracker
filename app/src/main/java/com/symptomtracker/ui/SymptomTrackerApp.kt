@@ -13,6 +13,9 @@ sealed class Screen(val route: String) {
     data object CreateEntry : Screen("create_entry?entryId={entryId}") {
         fun createRoute(entryId: Long? = null) = if (entryId != null) "create_entry?entryId=$entryId" else "create_entry"
     }
+    data object CreateBloodPressure : Screen("create_bp?entryId={entryId}") {
+        fun createRoute(entryId: Long? = null) = if (entryId != null) "create_bp?entryId=$entryId" else "create_bp"
+    }
 }
 
 @Composable
@@ -28,11 +31,16 @@ fun SymptomTrackerApp(
     ) {
         composable(Screen.Home.route) {
             HomeScreen(
-                entries = viewModel.entries,
-                onAddClick = { navController.navigate(Screen.CreateEntry.createRoute()) },
-                onEntryClick = { entry -> navController.navigate(Screen.CreateEntry.createRoute(entry.id)) },
-                onDeleteClick = { entry -> viewModel.deleteEntry(entry) },
-                onImportEntries = { entries -> viewModel.insertEntries(entries) }
+                symptomEntries = viewModel.entries,
+                bpEntries = viewModel.bloodPressureEntries,
+                onAddSymptomClick = { navController.navigate(Screen.CreateEntry.createRoute()) },
+                onSymptomClick = { entry -> navController.navigate(Screen.CreateEntry.createRoute(entry.id)) },
+                onDeleteSymptomClick = { entry -> viewModel.deleteEntry(entry) },
+                onAddBPClick = { navController.navigate(Screen.CreateBloodPressure.createRoute()) },
+                onBPClick = { entry -> navController.navigate(Screen.CreateBloodPressure.createRoute(entry.id)) },
+                onDeleteBPClick = { entry -> viewModel.deleteBloodPressureEntry(entry) },
+                onImportSymptomEntries = { entries -> viewModel.insertEntries(entries) },
+                onImportBPEntries = { entries -> viewModel.insertBloodPressureEntries(entries) }
             )
         }
         composable(
@@ -56,6 +64,26 @@ fun SymptomTrackerApp(
                 onDeleteDosage = { medication, dosage -> viewModel.deleteDosage(medication, dosage) },
                 onSave = { entry ->
                     viewModel.insertEntry(entry)
+                    navController.popBackStack()
+                },
+                onBack = { navController.popBackStack() }
+            )
+        }
+        composable(
+            route = Screen.CreateBloodPressure.route,
+            arguments = listOf(
+                navArgument("entryId") {
+                    type = NavType.LongType
+                    defaultValue = -1L
+                }
+            )
+        ) { backStackEntry ->
+            val entryId = backStackEntry.arguments?.getLong("entryId") ?: -1L
+            CreateBloodPressureScreen(
+                entryId = if (entryId != -1L) entryId else null,
+                getEntry = { id -> viewModel.getBloodPressureEntryById(id) },
+                onSave = { entry ->
+                    viewModel.insertBloodPressureEntry(entry)
                     navController.popBackStack()
                 },
                 onBack = { navController.popBackStack() }
